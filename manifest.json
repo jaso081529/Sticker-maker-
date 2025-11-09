@@ -1,7 +1,7 @@
 {
   "name": "HP67 Prompt2Sticker",
   "short_name": "Prompt2Sticker",
-  "description": "Offline Prompt→Sticker, 1080p • 300 DPI • A3-Bogen • QR aus",
+  "description": "Offline Prompt→Sticker, Prompt→Logo, Prompt→Karikatur. 1080p • 300 DPI • A3-Bogen • SVG-Export • QR aus",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0e0f12",

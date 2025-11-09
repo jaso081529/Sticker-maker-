@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HP67 Prompt Studio — SFW</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --bg:#0b0d10;
+    --panel:#12151a;
+    --muted:#2a2f37;
+    --text:#e6e9ef;
+    --accent:#5aa9ff;
+    --ok:#33d17a;
+    --warn:#ffcc00;
+    --err:#ff6363;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  header{
+    padding:16px;
+    background:linear-gradient(180deg, #0b0d10 0%, #0e1116 100%);
+    border-bottom:1px solid var(--muted);
+  }
+  h1{font-size:20px;margin:0 0 4px 0}
+  .sub{font-size:12px;color:#9aa3af}
+  main{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:16px;
+    padding:0 16px 24px;
+  }
+  @media(min-width:900px){
+    main{grid-template-columns: 420px 1fr}
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--muted);
+    border-radius:12px;
+    padding:14px;
+  }
+  label{display:block;font-size:12px;color:#b6beca;margin:8px 0 6px}
+  input[type="text"], input[type="password"], textarea, select, input[type="number"]{
+    width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--muted);
+    background:#0e1217; color:var(--text); outline:none;
+  }
+  textarea{min-height:120px; resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr; gap:10px}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;
+    border:1px solid var(--muted); background:#0f141a; color:var(--text);
+    padding:12px 14px; border-radius:10px; cursor:pointer; text-decoration:none;
+    user-select:none;
+  }
+  .btn.primary{background:var(--accent); color:black; border-color:transparent}
+  .btn.ok{background:var(--ok); color:black; border-color:transparent}
+  .btn.warn{background:var(--warn); color:black; border-color:transparent}
+  .btn.err{background:var(--err); color:black; border-color:transparent}
+  .btn:disabled{opacity:0.5;cursor:not-allowed}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .muted{color:#9aa3af;font-size:12px}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding:0 6px; border:1px solid var(--muted); border-radius:6px; background:#0c0f13; font-size:12px}
+  .out{
+    min-height:280px; border:1px dashed var(--muted); border-radius:12px; padding:10px;
+    overflow:auto; background:#0b0f14;
+    /* removed centering; left/top flow */
+  }
+  pre{white-space:pre-wrap;word-break:break-word;margin:0;width:100%}
+  img#imgOut{max-width:100%;height:auto;display:block}
+  details{background:#0f1217;border:1px solid var(--muted);border-radius:10px;padding:10px}
+  details>summary{cursor:pointer}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--muted);font-size:12px;margin-right:6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  footer{padding:0 16px 16px;color:#8b93a1;font-size:12px}
+  .hr{height:1px;background:var(--muted);margin:10px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>HP67 Prompt Studio — SFW</h1>
+  <div class="sub">Single‑Datei. Nichts zentriert. Optional: Hugging Face Inference API. NSFW wird blockiert.</div>
+</header>
+
+<main>
+  <!-- LEFT: Controls -->
+  <section class="card">
+    <label for="provider">Provider</label>
+    <select id="provider">
+      <option value="offline">Offline‑Demo (ohne Internet)</option>
+      <option value="hf">Hugging Face Inference API</option>
+    </select>
+
+    <div id="hfBox" style="display:none">
+      <div class="hr"></div>
+      <div class="row">
+        <div>
+          <label for="hfKey">HF API‑Token <span class="muted">(wird lokal gespeichert)</span></label>
+          <input id="hfKey" type="password" placeholder="hf_...">
+        </div>
+        <div>
+          <label for="hfModelText">Text‑Modell</label>
+          <input id="hfModelText" type="text" placeholder="z. B. meta-llama/Llama-3.1-8B-Instruct">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="hfModelImage">Bild‑Modell</label>
+          <input id="hfModelImage" type="text" placeholder="z. B. stabilityai/stable-diffusion-xl-base-1.0">
+        </div>
+        <div>
+          <label for="hfAccept">Bildformat</label>
+          <select id="hfAccept">
+            <option value="image/png">PNG</option>
+            <option value="image/jpeg">JPEG</option>
+          </select>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="saveHf" class="btn">Speichern</button>
+        <span class="muted">Hinweis: Schlüssel niemals öffentlich teilen.</span>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+    <label for="mode">Modus</label>
+    <select id="mode">
+      <option value="text">Text</option>
+      <option value="image">Bild</option>
+    </select>
+
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" placeholder="Beschreibe was du erzeugen willst."></textarea>
+
+    <details>
+      <summary>Erweitert</summary>
+      <div class="grid2">
+        <div>
+          <label for="maxTokens">max_new_tokens (Text)</label>
+          <input id="maxTokens" type="number" min="1" max="2048" value="400">
+        </div>
+        <div>
+          <label for="temperature">temperature (Text)</label>
+          <input id="temperature" type="number" step="0.1" min="0" max="2" value="0.7">
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label for="steps">num_inference_steps (Bild)</label>
+          <input id="steps" type="number" min="1" max="200" value="30">
+        </div>
+        <div>
+          <label for="guidance">guidance_scale (Bild)</label>
+          <input id="guidance" type="number" step="0.5" min="0" max="20" value="7.5">
+        </div>
+      </div>
+    </details>
+
+    <div class="toolbar">
+      <button id="run" class="btn primary">Generieren</button>
+      <button id="clear" class="btn">Leeren</button>
+      <button id="dl" class="btn ok" disabled>Download</button>
+    </div>
+    <div class="hr"></div>
+    <div class="muted">
+      <span class="tag">Keine Zentrierung</span>
+      <span class="tag">SFW‑Filter aktiv</span>
+      <span class="tag">LocalStorage</span>
+      <span class="tag">Mobil‑optimiert</span>
+    </div>
+  </section>
+
+  <!-- RIGHT: Output -->
+  <section class="card">
+    <label>Ausgabe</label>
+    <div id="out" class="out">
+      <pre id="textOut" style="display:none"></pre>
+      <img id="imgOut" style="display:none" alt="Ergebnis">
+    </div>
+    <div id="status" class="muted" style="margin-top:8px"></div>
+  </section>
+</main>
+
+<footer>
+  <div>Hinweis: Diese Datei enthält eine hart verdrahtete SFW‑Sperre. Sexuelle Inhalte werden verworfen.</div>
+</footer>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const LS_KEY = "hp67_prompt_studio_v1";
+
+const state = {
+  provider: "offline",
+  hfKey: "",
+  hfModelText: "meta-llama/Llama-3.1-8B-Instruct",
+  hfModelImage: "stabilityai/stable-diffusion-xl-base-1.0",
+  hfAccept: "image/png",
+  mode: "text",
+  prompt: "",
+  max_new_tokens: 400,
+  temperature: 0.7,
+  steps: 30,
+  guidance: 7.5,
+  lastBlobUrl: null
+};
+
+// --------- SFW Filter ---------
+const NSFW_PATTERNS = [
+  /porn|xxx|nsfw|erotik|sex|blowjob|handjob|anal|vaginal|cum|nackt|nipple|boob|penis|vagina|futanari|hentai|milf|bdsm|fetish|erotic/gi
+];
+function isNSFW(text){
+  if(!text) return false;
+  return NSFW_PATTERNS.some(rx => rx.test(text));
+}
+
+// --------- LocalStorage ---------
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const obj = JSON.parse(raw);
+      Object.assign(state, obj);
+    }
+  }catch(e){}
+}
+function save(){
+  const toSave = {...state};
+  toSave.lastBlobUrl = null;
+  localStorage.setItem(LS_KEY, JSON.stringify(toSave));
+}
+
+// --------- UI Bindings ---------
+function bind(){
+  $("#provider").value = state.provider;
+  $("#mode").value = state.mode;
+  $("#prompt").value = state.prompt;
+  $("#maxTokens").value = state.max_new_tokens;
+  $("#temperature").value = state.temperature;
+  $("#steps").value = state.steps;
+  $("#guidance").value = state.guidance;
+
+  $("#hfKey").value = state.hfKey;
+  $("#hfModelText").value = state.hfModelText;
+  $("#hfModelImage").value = state.hfModelImage;
+  $("#hfAccept").value = state.hfAccept;
+  toggleHfBox();
+
+  $("#provider").addEventListener("change", e => {
+    state.provider = e.target.value;
+    toggleHfBox();
+    save();
+  });
+  $("#mode").addEventListener("change", e => { state.mode = e.target.value; save(); });
+  $("#prompt").addEventListener("input", e => { state.prompt = e.target.value; save(); });
+  $("#maxTokens").addEventListener("input", e => { state.max_new_tokens = clampInt(e.target.value,1,2048,400); save(); });
+  $("#temperature").addEventListener("input", e => { state.temperature = clampFloat(e.target.value,0,2,0.7); save(); });
+  $("#steps").addEventListener("input", e => { state.steps = clampInt(e.target.value,1,200,30); save(); });
+  $("#guidance").addEventListener("input", e => { state.guidance = clampFloat(e.target.value,0,20,7.5); save(); });
+
+  $("#saveHf").addEventListener("click", ()=>{
+    state.hfKey = $("#hfKey").value.trim();
+    state.hfModelText = $("#hfModelText").value.trim() || state.hfModelText;
+    state.hfModelImage = $("#hfModelImage").value.trim() || state.hfModelImage;
+    state.hfAccept = $("#hfAccept").value;
+    save();
+    setStatus("Hugging Face Einstellungen gespeichert.");
+  });
+
+  $("#run").addEventListener("click", run);
+  $("#clear").addEventListener("click", clearOut);
+  $("#dl").addEventListener("click", downloadResult);
+}
+
+function toggleHfBox(){
+  $("#hfBox").style.display = state.provider === "hf" ? "block" : "none";
+}
+
+function clampInt(v,min,max,def){ v=parseInt(v); return Number.isFinite(v)?Math.max(min,Math.min(max,v)):def; }
+function clampFloat(v,min,max,def){ v=parseFloat(v); return Number.isFinite(v)?Math.max(min,Math.min(max,v)):def; }
+
+function setStatus(msg, kind=""){
+  const el=$("#status"); el.textContent = msg || "";
+  el.style.color = kind==="err"?"var(--err)":kind==="ok"?"var(--ok)":"#8b93a1";
+}
+
+// --------- Core ---------
+async function run(){
+  clearOut(false);
+  const p = (state.prompt||"").trim();
+
+  if(isNSFW(p)){
+    setStatus("Blockiert: sexuelle Inhalte sind in dieser App nicht erlaubt.", "err");
+    return;
+  }
+
+  if(!p){ setStatus("Prompt fehlt."); return; }
+
+  try{
+    $("#run").disabled = true;
+    setStatus("Läuft …");
+
+    if(state.provider==="offline"){
+      await runOffline(p);
+    }else if(state.provider==="hf"){
+      await runHuggingFace(p);
+    }else{
+      setStatus("Unbekannter Provider.", "err");
+    }
+  }catch(err){
+    console.error(err);
+    setStatus("Fehler: " + (err?.message||err), "err");
+  }finally{
+    $("#run").disabled = false;
+  }
+}
+
+function clearOut(resetPrompt=true){
+  if(state.lastBlobUrl){
+    URL.revokeObjectURL(state.lastBlobUrl);
+    state.lastBlobUrl = null;
+  }
+  $("#textOut").style.display="none";
+  $("#imgOut").style.display="none";
+  $("#textOut").textContent="";
+  $("#imgOut").src="";
+  if(resetPrompt){ $("#prompt").value=""; state.prompt=""; save(); }
+  $("#dl").disabled = true;
+  setStatus("");
+}
+
+async function runOffline(p){
+  if(state.mode==="text"){
+    const out = `# Offline‑Demo
+Prompt: ${p}
+
+Dies ist ein Platzhalter. Verbinde die Hugging Face API in den Einstellungen, um echte Modelle zu nutzen.`;
+    $("#textOut").textContent = out;
+    $("#textOut").style.display="block";
+    enableTextDownload(out);
+    setStatus("Fertig (Offline‑Demo).", "ok");
+  }else{
+    // Generate a simple canvas image with text
+    const canvas = document.createElement("canvas");
+    const w=1024, h=1024;
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    // bg
+    const g = ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,"#18202a");
+    g.addColorStop(1,"#0b0f14");
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    // frame
+    ctx.strokeStyle="#5aa9ff"; ctx.lineWidth=8; ctx.strokeRect(12,12,w-24,h-24);
+    // text
+    ctx.fillStyle="#e6e9ef";
+    ctx.font="bold 48px system-ui";
+    wrapText(ctx, "Offline‑Demo\n" + p, 48, 120, w-96, 54);
+    const blob = await new Promise(r=>canvas.toBlob(r,"image/png",1));
+    const url = URL.createObjectURL(blob);
+    $("#imgOut").src = url;
+    $("#imgOut").style.display="block";
+    state.lastBlobUrl = url;
+    enableImageDownload(blob, "offline_demo.png");
+    setStatus("Fertig (Offline‑Demo).", "ok");
+  }
+}
+
+async function runHuggingFace(p){
+  const key = (state.hfKey||"").trim();
+  if(!key){ setStatus("HF API‑Token erforderlich.", "err"); return; }
+
+  if(state.mode==="text"){
+    const model = (state.hfModelText||"").trim();
+    if(!model){ setStatus("Text‑Modell fehlt.", "err"); return; }
+    const res = await fetch(`https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`, {
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer "+key,
+        "Content-Type":"application/json",
+        "Accept":"application/json"
+      },
+      body: JSON.stringify({
+        inputs: p,
+        parameters: {
+          max_new_tokens: state.max_new_tokens,
+          temperature: state.temperature
+        },
+        options: { wait_for_model: true }
+      })
+    });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`HF Fehler ${res.status}: ${t}`);
+    }
+    const data = await res.json();
+    let text = "";
+    if(Array.isArray(data) && data.length){
+      text = data[0].generated_text || data[0].summary_text || JSON.stringify(data,null,2);
+    }else if(typeof data === "object"){
+      text = data.generated_text || data.answer || JSON.stringify(data,null,2);
+    }else{
+      text = String(data);
+    }
+    $("#textOut").textContent = text;
+    $("#textOut").style.display="block";
+    enableTextDownload(text);
+    setStatus("Fertig (HF Text).", "ok");
+  }else{
+    const model = (state.hfModelImage||"").trim();
+    if(!model){ setStatus("Bild‑Modell fehlt.", "err"); return; }
+    const res = await fetch(`https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`, {
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer "+key,
+        "Content-Type":"application/json",
+        "Accept": state.hfAccept
+      },
+      body: JSON.stringify({
+        inputs: p,
+        parameters: {
+          num_inference_steps: state.steps,
+          guidance_scale: state.guidance
+        },
+        options: { wait_for_model: true }
+      })
+    });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`HF Fehler ${res.status}: ${t}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    $("#imgOut").src = url;
+    $("#imgOut").style.display="block";
+    state.lastBlobUrl = url;
+    enableImageDownload(blob, state.hfAccept==="image/png"?"image.png":"image.jpg");
+    setStatus("Fertig (HF Bild).", "ok");
+  }
+}
+
+function enableTextDownload(text){
+  const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  $("#dl").onclick = ()=>{
+    const a = document.createElement("a");
+    a.href = url; a.download = "output.txt"; a.click();
+  };
+  $("#dl").disabled = false;
+}
+function enableImageDownload(blob, name){
+  const url = URL.createObjectURL(blob);
+  $("#dl").onclick = ()=>{
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+  };
+  $("#dl").disabled = false;
+}
+
+// simple text wrapper for canvas
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const lines = String(text).split(/\n/);
+  for(const ln of lines){
+    let words = ln.split(' ');
+    let line = '';
+    for(let n=0;n<words.length;n++){
+      const test = line + words[n] + ' ';
+      if(ctx.measureText(test).width > maxWidth && n>0){
+        ctx.fillText(line, x, y);
+        line = words[n] + ' ';
+        y += lineHeight;
+      }else{
+        line = test;
+      }
+    }
+    ctx.fillText(line, x, y);
+    y += lineHeight;
+  }
+}
+
+load();
+bind();
+save();
+</script>
+</body>
+</html>
