@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HP67 Prompt2Sticker – Single-File + Live-Vorschau</title>
+<meta name="theme-color" content="#0e0f12">
+<style>
+  :root{--bg:#0e0f12;--panel:#17191d;--panel2:#1d2127;--text:#e6e7ea;--muted:#9aa0a6;--accent:#4c8df6;--ok:#19c37d}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  #app{display:grid;grid-template-columns:320px 1fr 360px;grid-template-rows:auto 1fr auto;grid-template-areas:"head head head" "left center right" "foot foot foot";height:100%}
+  header{grid-area:head;display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid #222630}
+  header h1{margin:0;font-size:16px}
+  .pill{padding:4px 8px;border-radius:999px;background:#21252c;border:1px solid #2a2f38;color:#cbd1d8;font-size:12px}
+  .btn{background:#22262f;color:#e6e7ea;border:1px solid #2f3642;border-radius:10px;padding:8px 10px;cursor:pointer}
+  .btn:hover{border-color:#3a4250}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.ok{background:var(--ok);border-color:var(--ok);color:#000}
+  .row{display:flex;gap:8px;align-items:center;margin:6px 0}
+  .row label{width:120px;color:var(--muted);font-size:12px}
+  .num{width:90px}
+  .wide{width:100%}
+  aside.left{grid-area:left;padding:10px;background:var(--panel);border-right:1px solid #222630;overflow:auto}
+  aside.right{grid-area:right;padding:10px;background:var(--panel);border-left:1px solid #222630;overflow:auto}
+  .section{background:var(--panel2);border:1px solid #2a2f38;border-radius:12px;padding:10px;margin-bottom:10px}
+  .section h3{margin:0 0 8px 0;font-size:13px;color:#cbd1d8}
+  main{grid-area:center;position:relative;overflow:auto;background:
+    radial-gradient(100% 100% at 0% 0%, #12141a 0%, #0e0f12 70%),
+    linear-gradient(90deg,transparent 49%,#1e232c 50%,transparent 51%) 0 0/40px 40px,
+    linear-gradient(transparent 49%,#1e232c 50%,transparent 51%) 0 0/40px 40px;}
+  #stageWrap{position:relative;display:flex;justify-content:center;align-items:center;min-height:100%;padding:20px}
+  canvas#stage{background:#0b0c10;border:1px solid #2b313c}
+  footer{grid-area:foot;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--panel);border-top:1px solid #222630;color:#9aa0a6}
+  .tabbar{display:flex;gap:6px;margin-bottom:8px}
+  .tab{padding:6px 10px;border:1px solid #2a2f38;border-radius:8px;background:#20242b;color:#cbd1d8;cursor:pointer}
+  .tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .hint{font-size:12px;color:#98a0aa}
+  input[type="color"]{width:42px;height:28px;border:0;background:transparent}
+  input[type="range"]{width:100%}
+  /* Live preview panel */
+  #livePanel{position:absolute;right:16px;top:16px;background:rgba(13,15,19,0.92);border:1px solid #2b313c;border-radius:12px;padding:8px;box-shadow:0 6px 24px rgba(0,0,0,0.35);backdrop-filter: blur(2px);}
+  #livePanel header{display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:0;margin:0}
+  #livePanel small{color:#9aa0a6}
+  #live{display:block;border:1px solid #2b313c;border-radius:8px}
+  @media (max-width: 900px){
+    #livePanel{right:8px;top:8px;transform:scale(0.9);transform-origin:top right;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>HP67 Prompt2Sticker – Single-File</h1>
+    <span class="pill">1080p Canvas</span>
+    <span class="pill">PNG 300 DPI</span>
+    <span class="pill">A3-Bogen</span>
+    <span class="pill">QR: AUS</span>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label class="pill" style="display:flex;gap:6px;align-items:center;cursor:pointer">
+        <input id="liveAuto" type="checkbox" checked> Live
+      </label>
+      <button class="btn" id="btnNew">Neu</button>
+      <button class="btn" id="btnSurprise" title="Egal welche Karikatur">Überraschen</button>
+      <button class="btn" id="btnBatch">Batch ×5</button>
+      <button class="btn primary" id="btnGenerate">Generieren</button>
+      <button class="btn ok" id="btnExportPNG">PNG</button>
+      <button class="btn" id="btnPrint">PDF (Druck)</button>
+    </div>
+  </header>
+
+  <aside class="left">
+    <div class="section">
+      <h3>Modus & Prompt</h3>
+      <div class="row"><label>Modus</label>
+        <select id="mode" class="wide">
+          <option value="caricature">Karikatur</option>
+          <option value="sticker">Sticker</option>
+          <option value="logo">Logo</option>
+        </select>
+      </div>
+      <div class="row"><label>Prompt</label><input class="wide" id="prompt" placeholder='"Devil", Schal, Megafon, Flammen, cool, bunt'></div>
+      <div class="row"><label>Seed</label><input id="seed" class="num" type="number" value="0"><button class="btn" id="btnRand">Zufall</button></div>
+      <div class="hint">Live = sofortige Mini‑Vorschau. „Generieren“ = volle 1080p.</div>
+    </div>
+
+    <div class="section">
+      <h3>Farben</h3>
+      <div class="row"><label>Primär</label><input type="color" id="c1" value="#ff1a1a"></div>
+      <div class="row"><label>Sekundär</label><input type="color" id="c2" value="#111111"></div>
+      <div class="row"><label>Akzent</label><input type="color" id="c3" value="#ffffff"></div>
+      <div class="row"><label>Hintergrund</label><input type="color" id="bgc" value="#0a0a0a"></div>
+      <div class="row"><label>Sättigung</label><input id="sat" type="range" min="0.6" max="1.8" step="0.01" value="1.3"></div>
+      <div class="row"><label>Kontrast</label><input id="con" type="range" min="0.8" max="1.6" step="0.01" value="1.15"></div>
+      <div class="row"><label>Outline</label><input id="olw" type="range" min="2" max="28" step="1" value="12"></div>
+    </div>
+
+    <div class="section">
+      <h3>Export</h3>
+      <div class="row"><label>Breite</label><input id="pxW" class="num" type="number" value="1920"> px</div>
+      <div class="row"><label>Höhe</label><input id="pxH" class="num" type="number" value="1080"> px</div>
+      <div class="row"><label>DPI-Tag</label><input id="dpi" class="num" type="number" value="300"> DPI</div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="stageWrap">
+      <canvas id="stage" width="1920" height="1080"></canvas>
+
+      <div id="livePanel">
+        <header>
+          <strong style="font-size:12px">Mini‑Vorschau</strong>
+          <small>(480×270)</small>
+        </header>
+        <canvas id="live" width="480" height="270"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <aside class="right">
+    <div class="tabbar">
+      <div class="tab active" data-tab="a3">A3-Bogen</div>
+      <div class="tab" data-tab="fx">Feintuning</div>
+      <div class="tab" data-tab="help">Hinweise</div>
+    </div>
+
+    <div class="section panel" id="panel-a3">
+      <h3>A3-Druckbogen</h3>
+      <div class="row"><label>Sticker-Breite</label><input id="stW" class="num" type="number" value="72"> mm</div>
+      <div class="row"><label>Sticker-Höhe</label><input id="stH" class="num" type="number" value="102"> mm</div>
+      <div class="row"><label>Untermaß</label><input id="underm" class="num" type="number" value="2.5"> %</div>
+      <div class="row"><label>Abstand</label><input id="gap" class="num" type="number" value="3"> mm</div>
+      <div class="row"><label>Ränder</label><input id="marg" class="num" type="number" value="6"> mm</div>
+      <div class="row">
+        <button class="btn" id="previewSheet">Vorschau</button>
+        <button class="btn primary" id="downloadSheet">PNG A3</button>
+        <button class="btn ok" id="printSheet">PDF (Druck)</button>
+      </div>
+      <div class="hint">A3: 297×420 mm = 3508×4961 px @ 300 DPI.</div>
+    </div>
+
+    <div class="section panel" id="panel-fx" style="display:none">
+      <h3>Feintuning</h3>
+      <div class="row"><label>Glow</label><input id="glow" type="range" min="0" max="1" step="0.01" value="0.3"></div>
+      <div class="row"><label>Weichzeichnen</label><input id="blur" type="range" min="0" max="2" step="0.05" value="0.12"></div>
+      <div class="row"><label>Schärfen</label><input id="sharp" type="range" min="0" max="1.2" step="0.05" value="0.45"></div>
+      <div class="hint">Anti‑Grain: minimales Blur, dann Unsharp. Keine KI‑Körnung.</div>
+    </div>
+
+    <div class="section panel" id="panel-help" style="display:none">
+      <h3>Hinweise</h3>
+      <ul>
+        <li>Mini‑Vorschau zeigt sofortige Änderungen. „Generieren“ rendert in voller Größe.</li>
+        <li>„Batch ×5“ baut fünf schnelle Varianten als Grid‑Vorschau.</li>
+        <li>Keine Logos. Offline. PNG 300‑DPI‑Tag. A3‑Bogen.</li>
+      </ul>
+    </div>
+  </aside>
+
+  <footer>
+    <div>Status: <span id="status">Bereit</span></div>
+    <div>Offline • sRGB • Keine QR‑Codes</div>
+  </footer>
+</div>
+
+<script>
+// Utils
+const $ = s=>document.querySelector(s);
+const $$ = s=>Array.from(document.querySelectorAll(s));
+function mulberry32(a){ return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;}}
+function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i); h=(h*16777619)>>>0;} return h>>>0; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function hex2rgb(hex){ hex=hex.replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join(''); const num=parseInt(hex,16); return {r:(num>>16)&255, g:(num>>8)&255, b:num&255}; }
+function rgb2hex({r,g,b}){ const s=n=>n.toString(16).padStart(2,'0'); return '#'+s(r)+s(g)+s(b); }
+function rgb2hsl({r,g,b}){ r/=255; g/=255; b/=255; const max=Math.max(r,g,b), min=Math.min(r,g,b); let h,s,l=(max+min)/2;
+  if(max===min){h=s=0;} else{ const d=max-min; s=l>0.5? d/(2-max-min) : d/(max+min);
+    switch(max){ case r: h=(g-b)/d + (g<b?6:0); break; case g: h=(b-r)/d + 2; break; case b: h=(r-g)/d + 4; break; } h/=6; }
+  return {h:Math.round(h*360), s, l}; }
+function hsl2hex({h,s,l}){ s=clamp(s,0,1); l=clamp(l,0,1); const a=s*Math.min(l,1-l);
+  const f=n=>{ const k=(n+h/30)%12; const c=l-a*Math.max(-1,Math.min(k-3, Math.min(9-k, 1))); return Math.round(255*c); };
+  return rgb2hex({r:f(0),g:f(8),b:f(4)});
+}
+function adjustSat(hex, factor){ const {h,s,l}=rgb2hsl(hex2rgb(hex)); return hsl2hex({h,s: clamp(s*factor,0,1), l}); }
+function darken(hex, amt){ const {r,g,b}=hex2rgb(hex); return rgb2hex({r:Math.round(r*(1-amt)), g:Math.round(g*(1-amt)), b:Math.round(b*(1-amt))}); }
+function lighten(hex, amt){ const {r,g,b}=hex2rgb(hex); const L=v=>clamp(Math.round(v*(1+amt)),0,255); return rgb2hex({r:L(r),g:L(g),b:L(b)}); }
+
+// Canvas + DPI
+const stage = document.getElementById('stage');
+const ctx = stage.getContext('2d');
+const live = document.getElementById('live');
+const lctx = live.getContext('2d');
+
+function resizeCanvas(w,h){ stage.width=w; stage.height=h; }
+function pngWithDPI(canvas, dpi){
+  const dataUrl = canvas.toDataURL('image/png');
+  const bin = atob(dataUrl.split(',')[1]);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  const ppm = Math.round(dpi/0.0254);
+  const pHYs = new Uint8Array(4+4+4+9+4);
+  const dv = new DataView(pHYs.buffer);
+  dv.setUint32(0, 9);
+  pHYs.set([112,72,89,115], 4);
+  dv.setUint32(8, ppm);
+  dv.setUint32(12, ppm);
+  pHYs[16]=1;
+  function crc32(arr){ let c=~0; for(let i=0;i<arr.length;i++){ c^=arr[i]; for(let k=0;k<8;k++) c=(c>>>1) ^ (0xEDB88320 & -(c & 1)); } return ~c>>>0; }
+  const typeAndData = pHYs.slice(4, 17);
+  const crc = crc32(typeAndData);
+  dv.setUint32(17, crc);
+  const sig=8, ihdrTotal=25, insertAt=sig+ihdrTotal;
+  const out = new Uint8Array(bytes.length + pHYs.length);
+  out.set(bytes.slice(0, insertAt), 0);
+  out.set(pHYs, insertAt);
+  out.set(bytes.slice(insertAt), insertAt + pHYs.length);
+  return new Blob([out], {type:'image/png'});
+}
+
+// Background
+function bgBurst(c1, c2){
+  ctx.fillStyle=c2; ctx.fillRect(0,0,stage.width,stage.height);
+  const g = ctx.createRadialGradient(stage.width*0.5, stage.height*0.55, Math.min(stage.width,stage.height)*0.1,
+                                     stage.width*0.5, stage.height*0.5, Math.max(stage.width,stage.height)*0.65);
+  g.addColorStop(0, adjustSat(c1, 0.5)); g.addColorStop(1, darken(adjustSat(c1, 0.8), 0.25));
+  ctx.fillStyle=g; ctx.fillRect(0,0,stage.width,stage.height);
+  ctx.save(); ctx.translate(stage.width/2, stage.height/2); ctx.globalAlpha=0.12;
+  for(let i=0;i<28;i++){
+    const ang = (i/28)*Math.PI*2;
+    const r1 = Math.min(stage.width,stage.height)*0.05;
+    const r2 = Math.max(stage.width,stage.height)*0.58;
+    ctx.beginPath(); ctx.moveTo(Math.cos(ang)*r1, Math.sin(ang)*r1); ctx.lineTo(Math.cos(ang)*r2, Math.sin(ang)*r2);
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Karikatur primitives
+function roundedRect(x,y,w,h,r, fill, outline, ocol){ ctx.save(); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); if(outline){ ctx.lineWidth=outline; ctx.strokeStyle=ocol||'#fff'; ctx.stroke(); } ctx.restore(); }
+function shadedEllipse(x,y,w,h, fill, outline, ocol){
+  ctx.save(); ctx.beginPath(); ctx.ellipse(x,y,w/2,h/2,0,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill();
+  const g = ctx.createLinearGradient(x, y-h/2, x, y+h/2); g.addColorStop(0,'rgba(0,0,0,0.08)'); g.addColorStop(1,'rgba(0,0,0,0.35)'); ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x-w*0.15, y-h*0.25, w*0.35, h*0.25, -0.6, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fill();
+  ctx.lineWidth=outline; ctx.strokeStyle=ocol; ctx.stroke(); ctx.restore();
+}
+function drawHorn(x,y,S, ang, fill, outline){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(S*0.05,-S*0.25, S*0.45,-S*0.95); ctx.quadraticCurveTo(S*0.10,-S*0.45, 0,-S*0.05);
+  ctx.closePath(); ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=outline; ctx.strokeStyle='#fff'; ctx.stroke(); ctx.restore();
+}
+function drawEye(x,y,r, col, outline, open){
+  ctx.save(); ctx.translate(x,y);
+  if(open){
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle='#000'; ctx.fill();
+    ctx.lineWidth=Math.max(2, outline*0.4); ctx.strokeStyle=col; ctx.stroke();
+    ctx.beginPath(); ctx.arc(-r*0.25,-r*0.2,r*0.25,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  } else {
+    ctx.lineWidth=Math.max(3, outline*0.5); ctx.strokeStyle='#000'; ctx.beginPath(); ctx.moveTo(-r,0); ctx.quadraticCurveTo(0,-r*0.5,r,0); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawMouth(x,y,w,h, col, outline){
+  ctx.save(); ctx.translate(x,y); ctx.beginPath(); ctx.ellipse(0,0,w/2,h/2,0,0,Math.PI);
+  ctx.lineWidth=Math.max(4, outline*0.5); ctx.strokeStyle=col; ctx.stroke();
+  const t=7; for(let i=0;i<t;i++){ const px=-w/2+(i+0.5)*(w/t); ctx.fillStyle='#fff'; ctx.fillRect(px-(w/t)*0.2,-1,(w/t)*0.38,h*0.38); }
+  ctx.restore();
+}
+function drawMegaphone(x,y,S, col, prim, outline){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(-0.25);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(S*0.75,-S*0.18); ctx.lineTo(S*0.75,S*0.18); ctx.closePath(); ctx.fillStyle=col; ctx.fill(); ctx.lineWidth=outline; ctx.strokeStyle='#fff'; ctx.stroke();
+  roundedRect(-S*0.08, S*0.05, S*0.18, S*0.42, S*0.08, prim, Math.max(2, outline*0.5), '#fff');
+  ctx.strokeStyle=col; ctx.lineWidth=Math.max(2, outline*0.35); for(let i=1;i<=3;i++){ ctx.beginPath(); ctx.arc(S*0.90,0,S*0.20*i,-0.4,0.4); ctx.stroke(); }
+  ctx.restore();
+}
+function drawFlames(cx, cy, w, h, color){
+  ctx.save(); ctx.translate(cx,cy);
+  for(let i=0;i<6;i++){ ctx.beginPath(); ctx.moveTo(0, h/2); const dx=(i-3)*w/8;
+    ctx.quadraticCurveTo(dx, 0, dx*0.6, -h/2); ctx.quadraticCurveTo(dx*0.2, -h/6, 0, h/2);
+    ctx.fillStyle = i%2?color:lighten(color,0.15); ctx.globalAlpha=0.9; ctx.fill(); }
+  ctx.globalAlpha=1; ctx.restore();
+}
+function drawArcText(text, cx, cy, radius, lw, fill, stroke){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(Math.PI);
+  const chars=[...text]; const baseSize=Math.round(radius*0.24); let angle=Math.PI*0.9;
+  for(const ch of chars){
+    ctx.save(); ctx.rotate(angle); ctx.translate(0, -radius*0.02);
+    ctx.font=`900 ${baseSize}px Impact, Arial Black, system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(lw>0){ ctx.lineWidth=lw; ctx.strokeStyle=stroke; ctx.strokeText(ch, 0, -radius); }
+    ctx.fillStyle=fill; ctx.fillText(ch, 0, -radius);
+    ctx.restore();
+    angle -= 1.05 * (Math.PI*2 / Math.max(24, chars.length*2.2));
+  }
+  ctx.restore();
+}
+function ring(x,y,r, w, color, stroke){ ctx.save(); ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.lineWidth=w; ctx.strokeStyle=color; ctx.stroke(); if(stroke){ ctx.lineWidth=Math.max(2, w*0.35); ctx.strokeStyle=stroke; ctx.stroke(); } ctx.restore(); }
+function drawLabel(text, cx, cy, size, fill, stroke, lw){ ctx.save(); ctx.font=`900 ${size}px Impact, Arial Black, system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle'; if(lw>0){ ctx.lineWidth=lw; ctx.strokeStyle=stroke; ctx.strokeText(text, cx, cy); } ctx.fillStyle=fill; ctx.fillText(text, cx, cy); ctx.restore(); }
+
+// Generators
+function paletteFromPrompt(p, c1, c2, c3){
+  p=(p||'').toLowerCase();
+  const red=c1||'#ff1a1a', dark=c2||'#111111', white=c3||'#ffffff';
+  if(p.includes('gold')) return ['#ffcc00', dark, white];
+  if(p.includes('gift')||p.includes('neon')) return ['#39ff14', dark, white];
+  if(p.includes('blau')) return ['#1a7cff', '#0a0f1a', white];
+  if(p.includes('pink')) return ['#ff3ea5', '#0b0a0f', white];
+  return [red, dark, white];
+}
+function drawSticker(cfg){
+  const {prompt, col, sat, con, outline, bgc} = cfg;
+  ctx.fillStyle=bgc; ctx.fillRect(0,0,stage.width,stage.height); bgBurst(col[1], bgc);
+  const cx=stage.width/2, cy=stage.height/2, R=Math.min(stage.width,stage.height)*0.38;
+  ring(cx, cy, R*1.02, outline, '#fff', col[0]); ring(cx, cy, R*0.86, Math.max(2, outline*0.6), '#fff', col[1]);
+  drawLabel((prompt||'DIVISION 67').toUpperCase(), cx, cy, Math.round(R*0.55), '#fff', '#000', Math.max(3, outline*0.5));
+  ctx.filter=`saturate(${sat}) contrast(${con})`; const snap = snapshot(); ctx.filter='none'; ctx.drawImage(snap,0,0);
+}
+function drawKarikatur(cfg){
+  const {seed, prompt, col, sat, con, outline, bgc} = cfg;
+  const rnd = mulberry32(seed);
+  ctx.fillStyle=bgc; ctx.fillRect(0,0,stage.width,stage.height); bgBurst(col[1], bgc);
+  const cx=stage.width/2, cy=stage.height*0.58; const S=Math.min(stage.width,stage.height)*0.72;
+  const bW=S*0.38, bH=S*0.30; shadedEllipse(cx, cy, bW, bH, col[0], outline, '#fff');
+  const hW=S*0.44, hH=S*0.36; shadedEllipse(cx, cy-bH*0.95, hW, hH, col[0], outline, '#fff');
+  drawHorn(cx - hW*0.35, cy - bH*1.55, S*0.26, -0.9, col[0], outline);
+  drawHorn(cx + hW*0.35, cy - bH*1.55, S*0.26, +0.9, col[0], outline);
+  const eyeR=hH*0.13; const p=(prompt||'').toLowerCase();
+  const openL = !/zwinker|zu/.test(p) && rnd()>0.2; const openR = rnd()>0.2;
+  drawEye(cx - hW*0.18, cy - bH*1.10, eyeR, col[2], outline, openL);
+  drawEye(cx + hW*0.18, cy - bH*1.10, eyeR, col[2], outline, openR);
+  drawMouth(cx, cy - bH*0.7, hW*0.55, hH*0.25, col[2], outline);
+  if(/schal|scarf/.test(p) || true) { // always scarf unless explicitly "ohne schal"
+    drawScarf(cx, cy - bH*0.05, bW*1.2, bH*0.35, col[0], col[1], outline);
+  }
+  if(/mega(fon|phone)|megaloh/.test(p) || /megafon/.test(p)) drawMegaphone(cx + bW*0.85, cy - bH*0.45, S*0.32, col[2], col[0], outline);
+  if(/flamme|feuer|burn|hand/.test(p)) drawFlames(cx - bW*0.95, cy - bH*0.05, S*0.6, S*0.6, col[0]);
+  const words=(prompt||'').toUpperCase().split(/\W+/).filter(w=>w.length>3);
+  const slogan = words.slice(0,2).join(' ') || 'RED DEVILS';
+  drawArcText(slogan, stage.width/2, stage.height*0.92, Math.min(stage.width,stage.height)*0.36, Math.max(2, outline*0.6), col[0], '#fff');
+  ctx.filter = `saturate(${sat}) contrast(${con})`; const snap = snapshot(); ctx.filter='none'; ctx.drawImage(snap,0,0);
+}
+function snapshot(){ const c=document.createElement('canvas'); c.width=stage.width; c.height=stage.height; c.getContext('2d').drawImage(stage,0,0); return c; }
+
+// A3 sheet
+function buildA3Sheet(stickerCanvas, mmW, mmH, underm, gap, marg){
+  const DPI=300, pxW=3508, pxH=4961;
+  const sheet=document.createElement('canvas'); sheet.width=pxW; sheet.height=pxH;
+  const sx=sheet.getContext('2d'); sx.fillStyle='#fff'; sx.fillRect(0,0,pxW,pxH);
+  const scale = DPI/25.4;
+  const w = Math.round(mmW*scale*(1 - underm/100));
+  const h = Math.round(mmH*scale*(1 - underm/100));
+  const g = Math.round(gap*scale);
+  const m = Math.round(marg*scale);
+  let x=m, y=m;
+  while(y + h + m <= pxH){
+    while(x + w + m <= pxW){
+      sx.drawImage(stickerCanvas, 0,0, stickerCanvas.width, stickerCanvas.height, x, y, w, h);
+      // Schnittmarken
+      sx.strokeStyle='#000'; sx.lineWidth=1; sx.beginPath();
+      sx.moveTo(x, y-6); sx.lineTo(x, y+6); sx.moveTo(x+w, y-6); sx.lineTo(x+w, y+6);
+      sx.moveTo(x-6, y); sx.lineTo(x+6, y); sx.moveTo(x-6, y+h); sx.lineTo(x+6, y+h);
+      sx.stroke();
+      x += w + g;
+    }
+    x = m; y += h + g;
+  }
+  return sheet;
+}
+
+// State + generation
+function cfgFromUI(){
+  const prompt = $('#prompt').value.trim();
+  let seed = parseInt($('#seed').value||'0',10);
+  if(!seed||Number.isNaN(seed)){ seed = hashStr(prompt || Date.now().toString()); $('#seed').value = seed; }
+  return {
+    mode: $('#mode').value, prompt, seed,
+    col: paletteFromPrompt(prompt, $('#c1').value, $('#c2').value, $('#c3').value),
+    sat: parseFloat($('#sat').value), con: parseFloat($('#con').value),
+    outline: parseInt($('#olw').value,10), bgc: $('#bgc').value
+  };
+}
+function renderFull(){
+  const cfg = cfgFromUI();
+  const w = parseInt($('#pxW').value,10), h = parseInt($('#pxH').value,10);
+  resizeCanvas(w,h);
+  if(cfg.mode==='caricature') drawKarikatur(cfg);
+  else if(cfg.mode==='sticker') drawSticker(cfg);
+  else drawSticker(cfg);
+  $('#status').textContent = `Generiert (${cfg.mode}) • Seed ${cfg.seed}`;
+  updateLive();
+}
+function updateLive(){
+  // scale down stage -> live
+  lctx.clearRect(0,0,live.width,live.height);
+  lctx.drawImage(stage, 0,0, live.width, live.height);
+}
+
+// Live throttle
+let liveTimer=null;
+function scheduleLive(){
+  if(!$('#liveAuto').checked) return;
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(renderFull, 80); // light debounce
+}
+
+// Buttons
+$('#btnGenerate').addEventListener('click', renderFull);
+$('#btnRand').addEventListener('click', ()=>{ $('#seed').value = (Math.random()*0xffffffff)>>>0; scheduleLive(); });
+$('#btnNew').addEventListener('click', ()=>{ $('#prompt').value=''; $('#seed').value='0'; scheduleLive(); });
+$('#btnSurprise').addEventListener('click', ()=>{
+  $('#mode').value='caricature';
+  $('#prompt').value = buildSurprisePrompt();
+  $('#seed').value = ((Math.random()*0xffffffff)>>>0);
+  renderFull();
+});
+$('#btnBatch').addEventListener('click', ()=>{
+  const backupPrompt = $('#prompt').value;
+  const backupSeed = $('#seed').value;
+  const imgs = [];
+  for(let i=0;i<5;i++){
+    $('#mode').value='caricature';
+    $('#prompt').value = buildSurprisePrompt();
+    $('#seed').value = ((Math.random()*0xffffffff)>>>0);
+    renderFull();
+    imgs.push(stage.toDataURL('image/png'));
+  }
+  $('#prompt').value = backupPrompt; $('#seed').value = backupSeed; renderFull();
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>Batch ×5</title><style>body{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#111} img{width:100%;display:block}</style></head><body>');
+  imgs.forEach(src=> w.document.write(`<img src="${src}">`));
+  w.document.write('</body></html>'); w.document.close();
+});
+$('#btnExportPNG').addEventListener('click', ()=>{
+  const dpi = parseInt($('#dpi').value,10)||300;
+  const blob = pngWithDPI(stage, dpi);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `design_${dpi}dpi.png`; a.click(); URL.revokeObjectURL(a.href);
+});
+$('#btnPrint').addEventListener('click', ()=>{
+  const w = window.open('', '_blank'); const data = stage.toDataURL('image/png');
+  w.document.write(`<html><head><title>Print</title><style>body{margin:0} img{width:100%;height:auto;display:block}</style></head><body><img src="${data}"></body></html>`);
+  w.document.close(); w.focus(); w.print();
+});
+
+// Inputs live
+['mode','prompt','seed','c1','c2','c3','bgc','sat','con','olw','pxW','pxH','dpi'].forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener(el.tagName==='INPUT' && el.type==='range' ? 'input' : 'change', scheduleLive);
+});
+// Tabs
+$$('.tab').forEach(t=>t.addEventListener('click', e=>{
+  $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  const which=t.dataset.tab; $$('.panel').forEach(p=>p.style.display='none'); document.getElementById('panel-'+which).style.display='block';
+}));
+$('#previewSheet').addEventListener('click', ()=>{
+  const c = buildA3Sheet(stage, parseFloat($('#stW').value), parseFloat($('#stH').value), parseFloat($('#underm').value), parseFloat($('#gap').value), parseFloat($('#marg').value));
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>A3 Vorschau</title><style>body{margin:0;background:#333} img{width:100%;height:auto;display:block}</style></head><body><img src="${c.toDataURL('image/png')}"></body></html>`);
+  w.document.close();
+});
+$('#downloadSheet').addEventListener('click', ()=>{
+  const c = buildA3Sheet(stage, parseFloat($('#stW').value), parseFloat($('#stH').value), parseFloat($('#underm').value), parseFloat($('#gap').value), parseFloat($('#marg').value));
+  const a = document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='A3_Sheet_300dpi.png'; a.click();
+});
+$('#printSheet').addEventListener('click', ()=>{
+  const c = buildA3Sheet(stage, parseFloat($('#stW').value), parseFloat($('#stH').value), parseFloat($('#underm').value), parseFloat($('#gap').value), parseFloat($('#marg').value));
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>Print A3</title><style>body{margin:0} img{width:100%;height:auto;display:block}</style></head><body><img src="${c.toDataURL('image/png')}"></body></html>`);
+  w.document.close(); w.focus(); w.print();
+});
+
+// Surprise prompt
+function randomFrom(arr, rnd){ return arr[Math.floor(rnd()*arr.length)]; }
+function buildSurprisePrompt(){
+  const now = Date.now(); const rnd = mulberry32((now>>>0)&0xffffffff);
+  const heroes = ['Devil','Maskottchen','Teufel','Charakter'];
+  const gear = ['Schal','Megafon','Fahne','Kette','Basecap','Hoodie'];
+  const effects = ['Flammen','Rauch','Glow','Funken','Graffiti'];
+  const moods = ['cool','frech','wild','ultra','dynamisch'];
+  const colors = ['bunt','neon','gold','rot-weiß','schwarz-rot'];
+  return `"${randomFrom(heroes,rnd)}", ${randomFrom(gear,rnd)}, ${randomFrom(effects,rnd)}, ${randomFrom(moods,rnd)}, ${randomFrom(colors,rnd)}`;
+}
+
+// Boot
+window.addEventListener('load', ()=>{ $('#mode').value='caricature'; renderFull(); });
+</script>
+</body>
+</html>
